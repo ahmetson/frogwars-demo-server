@@ -1,19 +1,32 @@
 import express, { Express, Request, Response } from "express";
 import dotenv from "dotenv";
-import { isAddress, Contract, JsonRpcProvider } from "ethers";
+import { isAddress, Contract, JsonRpcProvider, TransactionReceipt, LogDescription, TransactionResponse, Block, getAddress } from "ethers";
 import LobbyAbi from "../abis/lobby";
+import { collections, connectToDatabase  } from "./db";
+import VersusDeposited from "./versus_deposited";
+import { ObjectId, WithId } from "mongodb";
 
 dotenv.config();
 
 const app: Express = express();
 const port = process.env.PORT || 3000;
 
+app.use(express.json());
+
 const provider = new JsonRpcProvider(process.env.RPC_URL!);
 const lobby = new Contract(process.env.LOBBY_ADDRESS!, LobbyAbi, provider);
 
 type Deposited = {
     walletAddress: string;
-    deposited: boolean;
+    depositTime: number;
+    win: number;
+    session?: string;
+    tx?: string;
+}
+
+type Start = {
+    walletAddress: string;
+    canPlay: boolean;
 }
 
 type Error = {
@@ -24,8 +37,43 @@ app.get("/", (req: Request, res: Response) => {
     res.send("Express + TypeScript Server");
 });
 
+app.get("/deposit/:tx", async (req:Request, res: Response) => {
+    let result = await txToDeposited(req.params.tx);
+
+    if (result instanceof Error) {
+        res.status(400).json(result)
+        return;
+    }
+
+    const deposited = result as Deposited;
+
+    try {
+        const found = await collections.versus_deposits?.findOne({tx: deposited.tx})
+        // already exists
+        if (found !== null) {
+            res.status(200).json(found);
+            return;
+        }
+    } catch (error) {
+        // failed to check
+         res.status(500).json(error);
+    }
+
+    // put the data
+    try {
+        const result = await collections.versus_deposits?.insertOne(deposited);
+
+        result
+            ? res.status(201).json(deposited)
+            : res.status(500).json({message: "Failed to create a new game."});
+    } catch (error) {
+        console.error(error);
+        res.status(400).json(error);
+    }
+});
+
 app.get("/deposited/:walletAddress", async (req: Request, res: Response) => {
-    const deposited: Deposited = {walletAddress: req.params.walletAddress, deposited: false};
+    const deposited: Deposited = {walletAddress: req.params.walletAddress, win: 0, depositTime: 0};
 
     if (!isAddress(deposited.walletAddress)) {
         res.status(400).json({message: "Invalid walletAddress"});
@@ -51,15 +99,134 @@ app.get("/deposited/:walletAddress", async (req: Request, res: Response) => {
         return;
     }
 
-    console.log("Player is " + deposited.walletAddress);
-
     if (playerAtIndex == deposited.walletAddress) {
-        deposited.deposited = true;
+        deposited.win = 0;
     }
 
     res.json(deposited)
 });
-  
-app.listen(port, () => {
-    console.log(`[server]: Server is running at http://localhost:${port}`);
+
+app.get("/start/:walletAddress", async (req: Request, res: Response) => {
+    let start: Start = {walletAddress: req.params.walletAddress, canPlay: false};
+
+    let latestDeposit: WithId<VersusDeposited>;
+
+    let walletAddress: string;
+    try {
+        walletAddress = getAddress(req.params.walletAddress)
+    } catch(e) {
+        console.error(e);
+        res.status(400).json({e});
+        return;
+    }
+
+    try {
+        const found = await collections.versus_deposits?.findOne({walletAddress: walletAddress}, {sort: {"depositTime": -1}})
+        // already exists
+        if (found === null) {
+            res.status(200).json(start);
+            return;
+        } 
+        latestDeposit = found as WithId<VersusDeposited>;
+    } catch (error) {
+        // failed to check
+        res.status(500).json(error);
+        return;
+    }
+
+    if (latestDeposit.win != 0) {
+        res.status(200).json(start);
+        return;
+    }
+        
+    if (!isSessionExpired(latestDeposit.depositTime)) {
+        start.canPlay = true;
+        res.status(200).json(start);
+        return;
+    }
+
+        latestDeposit.win = -1;
+        latestDeposit.session = undefined;
+        const query = { _id: latestDeposit._id };
+      
+        const result = await collections.versus_deposits?.updateOne(query, { $set: latestDeposit });
+
+        if (!result) {
+            res.status(500).json({message: "failed to update the data"});
+            return;
+        }
+
+        res.status(200).json(start);
 });
+
+connectToDatabase()
+    .then(() => {
+        app.listen(port, () => {
+            console.log(`[server]: Server is running at http://localhost:${port}`);
+        });
+    })
+    .catch((error: Error) => {
+        console.error("Database connection failed", error);
+        process.exit();
+    });
+
+const isSessionExpired = (depositTime: number): boolean => {
+    // For linea
+    const timeoutDuration = 180; // 3 minutes
+    const gameEnd = depositTime + timeoutDuration;
+    const now = Math.floor(Date.now() / 1000);
+
+    return gameEnd < now;
+}
+
+const txToDeposited = async(tx: string): Promise<Deposited | Error> => {
+    let txReceipt: null | TransactionReceipt;
+
+    try {
+        txReceipt = await provider.getTransactionReceipt(tx);
+    } catch (e) {
+        console.error(e);
+        return {message:"failed to get transaction"}
+    }
+
+    if (txReceipt === null) {
+        return {message: "invalid tx"};
+    }
+    if (txReceipt.to?.toLowerCase() !== process.env.LOBBY_ADDRESS!.toLowerCase()) {
+        return {message: "not a lobby transaction"};
+    }
+
+    let parsedLog: LogDescription | null = null;
+
+    for (let log of txReceipt.logs) {
+        if (log.address.toLowerCase() !== process.env.LOBBY_ADDRESS!.toLowerCase()) {
+            continue;
+        }
+        parsedLog = lobby.interface.parseLog(log);
+        if (parsedLog === null) {
+            continue;
+        }
+        if (parsedLog.name !== "Deposit") {
+            parsedLog = null;
+            continue;
+        }
+    }
+
+    if (parsedLog === null) {
+        return {message: "invalid event"};
+    }
+
+    // now getting a time
+    let block: null | Block = await provider.getBlock(txReceipt.blockNumber);
+    if (block === null) {
+        return {message: "Failed to get block time"}
+    }
+
+    const deposited: Deposited = {
+        walletAddress: parsedLog.args[0], 
+        win: 0, 
+        depositTime: block.timestamp,
+        tx: txReceipt.hash,
+    };
+    return deposited;
+}

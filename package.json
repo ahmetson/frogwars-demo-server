@@ -1,0 +1,28 @@
+{
+  "name": "frogwars-demo-server",
+  "version": "1.0.0",
+  "description": "A demo backend to test Frog Wars. For the actual server, check the game itself. It's in the Unity3D game engine",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ahmetson/frogwars-demo-server.git"
+  },
+  "author": "Medet Ahmetson <milayter@gmail.com>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ahmetson/frogwars-demo-server/issues"
+  },
+  "homepage": "https://github.com/ahmetson/frogwars-demo-server#readme",
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.11",
+    "typescript": "^5.5.3"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}

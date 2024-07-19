@@ -4,7 +4,8 @@ import { isAddress, Contract, JsonRpcProvider, TransactionReceipt, LogDescriptio
 import LobbyAbi from "../abis/lobby";
 import { collections, connectToDatabase  } from "./db";
 import VersusDeposited from "./versus_deposited";
-import { ObjectId, WithId } from "mongodb";
+import { WithId } from "mongodb";
+import { randomUUID } from "crypto";
 
 dotenv.config();
 
@@ -51,7 +52,7 @@ app.get("/deposit/:tx", async (req:Request, res: Response) => {
         const found = await collections.versus_deposits?.findOne({tx: deposited.tx})
         // already exists
         if (found !== null) {
-            res.status(200).json(found);
+            res.status(200).json(found as Deposited);
             return;
         }
     } catch (error) {
@@ -61,10 +62,10 @@ app.get("/deposit/:tx", async (req:Request, res: Response) => {
 
     // put the data
     try {
-        const result = await collections.versus_deposits?.insertOne(deposited);
+        const dbResult = await collections.versus_deposits?.insertOne(deposited);
 
-        result
-            ? res.status(201).json(deposited)
+        dbResult
+            ? res.status(200).json(deposited)
             : res.status(500).json({message: "Failed to create a new game."});
     } catch (error) {
         console.error(error);
@@ -72,6 +73,7 @@ app.get("/deposit/:tx", async (req:Request, res: Response) => {
     }
 });
 
+// deprecated
 app.get("/deposited/:walletAddress", async (req: Request, res: Response) => {
     const deposited: Deposited = {walletAddress: req.params.walletAddress, win: 0, depositTime: 0};
 
@@ -106,7 +108,60 @@ app.get("/deposited/:walletAddress", async (req: Request, res: Response) => {
     res.json(deposited)
 });
 
-app.get("/start/:walletAddress", async (req: Request, res: Response) => {
+// API name is to just to make sure to hide from users.
+// It announces the winner
+app.get("/can-end/:session/:win", async(req: Request, res: Response) => {
+    let session: string = req.params.session;
+    let win: number;
+
+    if (req.params.win === "1") {
+        win = 1;
+    } else {
+        win = -1;
+    }
+
+    let latestDeposit: WithId<VersusDeposited>;
+
+    try {
+        const found = await collections.versus_deposits?.findOne({session: session})
+        // already exists
+        if (found === null) {
+            res.status(200).json({message: "not found by session"});
+            return;
+        } 
+        latestDeposit = found as WithId<VersusDeposited>;
+    } catch (error) {
+        // failed to check
+        res.status(500).json(error);
+        return;
+    }
+
+    if (latestDeposit.win != 0) {
+        res.status(200).json({message: "updated already"});
+        return;
+    }
+    
+    if (isSessionExpired(latestDeposit.depositTime)) {
+        latestDeposit.win = -1;
+    } else {
+        latestDeposit.win = win;
+    }
+
+    // If session expired, and nothing was received from the user, then mark user as lost
+    latestDeposit.session = undefined;
+    const query = { _id: latestDeposit._id };
+      
+    const result = await collections.versus_deposits?.updateOne(query, { $set: latestDeposit });
+
+    if (!result) {
+        res.status(500).json({message: "internal error"});
+        return;
+    }
+
+    res.status(200).json({});
+})
+
+app.get("/can-start/:walletAddress", async (req: Request, res: Response) => {
     let start: Start = {walletAddress: req.params.walletAddress, canPlay: false};
 
     let latestDeposit: WithId<VersusDeposited>;
@@ -145,18 +200,19 @@ app.get("/start/:walletAddress", async (req: Request, res: Response) => {
         return;
     }
 
-        latestDeposit.win = -1;
-        latestDeposit.session = undefined;
-        const query = { _id: latestDeposit._id };
+    // If session expired, and nothing was received from the user, then mark user as lost
+    latestDeposit.win = -1;
+    latestDeposit.session = undefined;
+    const query = { _id: latestDeposit._id };
       
-        const result = await collections.versus_deposits?.updateOne(query, { $set: latestDeposit });
+    const result = await collections.versus_deposits?.updateOne(query, { $set: latestDeposit });
 
-        if (!result) {
-            res.status(500).json({message: "failed to update the data"});
-            return;
-        }
+    if (!result) {
+        res.status(500).json({message: "failed to update the data"});
+        return;
+    }
 
-        res.status(200).json(start);
+    res.status(200).json(start);
 });
 
 connectToDatabase()
@@ -172,7 +228,7 @@ connectToDatabase()
 
 const isSessionExpired = (depositTime: number): boolean => {
     // For linea
-    const timeoutDuration = 180; // 3 minutes
+    const timeoutDuration = 200; // 3 minutes + 20 seconds
     const gameEnd = depositTime + timeoutDuration;
     const now = Math.floor(Date.now() / 1000);
 
@@ -227,6 +283,7 @@ const txToDeposited = async(tx: string): Promise<Deposited | Error> => {
         win: 0, 
         depositTime: block.timestamp,
         tx: txReceipt.hash,
+        session: randomUUID(),
     };
     return deposited;
 }

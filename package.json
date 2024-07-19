@@ -4,7 +4,10 @@
   "description": "A demo backend to test Frog Wars. For the actual server, check the game itself. It's in the Unity3D game engine",
   "main": "src/index.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "npx ts-node src/index.ts",
+    "build": "npx tsc",
+    "run": "node dist/index.js"
   },
   "repository": {
     "type": "git",

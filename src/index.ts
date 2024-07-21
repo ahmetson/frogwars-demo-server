@@ -1,7 +1,7 @@
 import express, { Express, Request, Response } from "express";
 import dotenv from "dotenv";
 import { isAddress, Contract, JsonRpcProvider, TransactionReceipt, LogDescription, TransactionResponse, Block, getAddress } from "ethers";
-import LobbyAbi from "../abis/lobby";
+import LobbyAbi from "../abis/play_against_ai";
 import { collections, connectToDatabase  } from "./db";
 import VersusDeposited from "./versus_deposited";
 import { WithId } from "mongodb";
@@ -41,8 +41,9 @@ app.get("/", (req: Request, res: Response) => {
 app.get("/deposit/:tx", async (req:Request, res: Response) => {
     let result = await txToDeposited(req.params.tx);
 
-    if (result instanceof Error) {
-        res.status(400).json(result)
+
+    if (typeof(result) == "string") {
+        res.status(400).json({message: result});
         return;
     }
 
@@ -57,7 +58,7 @@ app.get("/deposit/:tx", async (req:Request, res: Response) => {
         }
     } catch (error) {
         // failed to check
-         res.status(500).json(error);
+        res.status(500).json(error);
     }
 
     // put the data
@@ -158,6 +159,9 @@ app.get("/can-end/:session/:win", async(req: Request, res: Response) => {
         return;
     }
 
+    // TODO
+    //console.log(`Todo, make sure to announce a winner: ${latestDeposit.walletAddress} if win = ${win}`);
+
     res.status(200).json({});
 })
 
@@ -174,7 +178,6 @@ app.get("/can-start/:walletAddress", async (req: Request, res: Response) => {
         res.status(400).json({e});
         return;
     }
-
     try {
         const found = await collections.versus_deposits?.findOne({walletAddress: walletAddress}, {sort: {"depositTime": -1}})
         // already exists
@@ -235,21 +238,21 @@ const isSessionExpired = (depositTime: number): boolean => {
     return gameEnd < now;
 }
 
-const txToDeposited = async(tx: string): Promise<Deposited | Error> => {
+const txToDeposited = async(tx: string): Promise<Deposited | string> => {
     let txReceipt: null | TransactionReceipt;
 
     try {
         txReceipt = await provider.getTransactionReceipt(tx);
     } catch (e) {
-        console.error(e);
-        return {message:"failed to get transaction"}
+        console.error(`failed to get tx: ` + e);
+        return "failed to get transaction";
     }
 
     if (txReceipt === null) {
-        return {message: "invalid tx"};
+        return "invalid tx";
     }
     if (txReceipt.to?.toLowerCase() !== process.env.LOBBY_ADDRESS!.toLowerCase()) {
-        return {message: "not a lobby transaction"};
+        return "not a lobby transaction";
     }
 
     let parsedLog: LogDescription | null = null;
@@ -269,13 +272,13 @@ const txToDeposited = async(tx: string): Promise<Deposited | Error> => {
     }
 
     if (parsedLog === null) {
-        return {message: "invalid event"};
+        return "invalid event";
     }
 
     // now getting a time
     let block: null | Block = await provider.getBlock(txReceipt.blockNumber);
     if (block === null) {
-        return {message: "Failed to get block time"}
+        return "Failed to get block time"
     }
 
     const deposited: Deposited = {

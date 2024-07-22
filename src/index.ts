@@ -8,6 +8,7 @@ import { WithId } from "mongodb";
 import { randomUUID } from "crypto";
 import { Deposited, LeadboardRow, Leaderboard, Start } from "./types";
 import {addToLeaderboard, topRanks} from "./leaderboard";
+import cors from "cors";
 
 dotenv.config();
 
@@ -15,6 +16,7 @@ const app: Express = express();
 const port = process.env.PORT || 3000;
 
 app.use(express.json());
+app.use(cors());
 
 const provider = new JsonRpcProvider(process.env.RPC_URL!);
 const lobby = new Contract(process.env.LOBBY_ADDRESS!, LobbyAbi, provider);

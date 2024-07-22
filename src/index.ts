@@ -3,9 +3,11 @@ import dotenv from "dotenv";
 import { isAddress, Contract, JsonRpcProvider, TransactionReceipt, LogDescription, TransactionResponse, Block, getAddress } from "ethers";
 import LobbyAbi from "../abis/play_against_ai";
 import { collections, connectToDatabase  } from "./db";
-import VersusDeposited from "./versus_deposited";
+import { VersusDeposited } from "./models";
 import { WithId } from "mongodb";
 import { randomUUID } from "crypto";
+import { Deposited, LeadboardRow, Leaderboard, Start } from "./types";
+import {addToLeaderboard, topRanks} from "./leaderboard";
 
 dotenv.config();
 
@@ -16,23 +18,6 @@ app.use(express.json());
 
 const provider = new JsonRpcProvider(process.env.RPC_URL!);
 const lobby = new Contract(process.env.LOBBY_ADDRESS!, LobbyAbi, provider);
-
-type Deposited = {
-    walletAddress: string;
-    depositTime: number;
-    win: number;
-    session?: string;
-    tx?: string;
-}
-
-type Start = {
-    walletAddress: string;
-    canPlay: boolean;
-}
-
-type Error = {
-    message: string;
-}
 
 app.get("/", (req: Request, res: Response) => {
     res.send("Express + TypeScript Server");
@@ -159,8 +144,10 @@ app.get("/can-end/:session/:win", async(req: Request, res: Response) => {
         return;
     }
 
-    // TODO
-    //console.log(`Todo, make sure to announce a winner: ${latestDeposit.walletAddress} if win = ${win}`);
+    if (win > 0) {
+        console.log(`Adding a winner to the leaderboard`);
+        await addToLeaderboard(latestDeposit.walletAddress);
+    }
 
     res.status(200).json({});
 })
@@ -217,6 +204,37 @@ app.get("/can-start/:walletAddress", async (req: Request, res: Response) => {
 
     res.status(200).json(start);
 });
+
+// show a leaderboard
+// get-leaderboard
+app.get("/leaderboard/:walletAddress", async (req: Request, res: Response) => {
+    let noUser: LeadboardRow = {
+        walletAddress: req.params.walletAddress,
+        rank: 0,
+        won: 0,
+    }
+
+    let leaderboard: Leaderboard = {
+        top: [],
+        player: noUser,
+    }
+
+    let top = await topRanks();
+    if (top === undefined) {
+        res.status(500).json({message: "failed to fetch leaderboard"});
+        return;
+    }
+    leaderboard.top = top as LeadboardRow[];
+
+    let player = await topRanks(req.params.walletAddress);
+    if (player === undefined) {
+        res.status(200).json(leaderboard);
+        return;
+    }
+    leaderboard.player = player as LeadboardRow;
+
+    res.status(200).json(leaderboard);
+})
 
 connectToDatabase()
     .then(() => {

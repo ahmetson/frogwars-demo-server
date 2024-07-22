@@ -7,7 +7,7 @@
 
 services:
   demo-mongodb:
-    image: mongo:4.2.3-bionic
+    image: mongo:5.0.28-focal
     container_name: demo-mongodb
     ports:
       - 27017:27017
@@ -19,15 +19,15 @@ services:
       # seeding scripts
       - ./mongo-entrypoint:/docker-entrypoint-initdb.d
       # named volumes
-      - mongodb:/data/db
-      - mongoconfig:/data/configdb
+      - mongodb5:/data/db
+      - mongoconfig5:/data/configdb
     networks:
       - mongo_net
 
 volumes:
   # default dir on Ubuntu: /var/lib/docker/volumes
-  mongodb:
-  mongoconfig:
+  mongodb5:
+  mongoconfig5:
 
 networks:
   mongo_net:

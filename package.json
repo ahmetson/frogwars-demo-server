@@ -6,6 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "npx ts-node src/index.ts",
+    "leaderboard": "npx ts-node src/mockup-leaderboard.ts",
     "build": "npx tsc",
     "run": "node dist/index.js"
   },

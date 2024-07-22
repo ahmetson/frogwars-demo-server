@@ -215,7 +215,11 @@ app.get("/leaderboard/:walletAddress", async (req: Request, res: Response) => {
     }
 
     let leaderboard: Leaderboard = {
-        top: [],
+        top1: noUser,
+        top2: noUser,
+        top3: noUser,
+        top4: noUser,
+        top5: noUser,
         player: noUser,
     }
 
@@ -224,7 +228,22 @@ app.get("/leaderboard/:walletAddress", async (req: Request, res: Response) => {
         res.status(500).json({message: "failed to fetch leaderboard"});
         return;
     }
-    leaderboard.top = top as LeadboardRow[];
+    let rows = top as LeadboardRow[];
+    if (rows.length > 0) {
+        leaderboard.top1 = rows[0];
+    }
+    if (rows.length > 1) {
+        leaderboard.top2 = rows[1];
+    }
+    if (rows.length > 2) {
+        leaderboard.top3 = rows[2];
+    }
+    if (rows.length > 3) {
+        leaderboard.top4 = rows[3];
+    }
+    if (rows.length > 4) {
+        leaderboard.top5 = rows[4];
+    }
 
     let player = await topRanks(req.params.walletAddress);
     if (player === undefined) {

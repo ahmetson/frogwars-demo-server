@@ -22,6 +22,10 @@ export type LeadboardRow = {
 }
 
 export type Leaderboard = {
-    top: LeadboardRow[];
+    top1: LeadboardRow;
+    top2: LeadboardRow;
+    top3: LeadboardRow;
+    top4: LeadboardRow;
+    top5: LeadboardRow;
     player: LeadboardRow;
 }

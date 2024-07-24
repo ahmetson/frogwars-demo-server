@@ -62,6 +62,19 @@ export const ranks = (walletAddress: string | undefined): Array<object> => {
     return agg;
 }
 
+export const prizePool = async (): Promise<string> => {
+    const winnerAmount = await collections.versus_leaderboard?.estimatedDocumentCount();
+    if (winnerAmount === undefined) {
+        return "0";
+    }
+    const depositAmount = parseFloat(process.env.DEPOSIT_AMOUNT!);
+
+    const totalDeposit = winnerAmount * depositAmount;
+
+    const prizeShare = 100 - parseFloat(process.env.TOTAL_FEE!);
+    return (totalDeposit / 100 * (prizeShare)).toFixed(4);
+}
+
 export const topRanks = async (walletAddress?: string): Promise<undefined|LeadboardRow|LeadboardRow[]> => {
     let agg = ranks(walletAddress);
     let cursor = collections.versus_leaderboard?.aggregate(agg);

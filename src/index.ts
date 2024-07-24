@@ -6,8 +6,8 @@ import { collections, connectToDatabase  } from "./db";
 import { VersusDeposited } from "./models";
 import { WithId } from "mongodb";
 import { randomUUID } from "crypto";
-import { Deposited, LeadboardRow, Leaderboard, Start } from "./types";
-import {addToLeaderboard, topRanks} from "./leaderboard";
+import { Deposited, LeadboardRow, Leaderboard, PrizePool, Start } from "./types";
+import {addToLeaderboard, topRanks, prizePool} from "./leaderboard";
 import { startMoralis, nftsByAddress, Nft } from "./nft";
 import cors from "cors";
 
@@ -255,8 +255,25 @@ app.get("/leaderboard/:walletAddress", async (req: Request, res: Response) => {
     }
     leaderboard.player = player as LeadboardRow;
 
+
     res.status(200).json(leaderboard);
 })
+
+app.get("/prize-pool", async (req: Request, res: Response) => {
+    let data: PrizePool = {
+        total: "0",
+    };
+
+    try {
+        data.total = await prizePool();
+    } catch (e) {
+        console.error(e);
+        res.status(400).json({message: 'internal error'});
+        return;
+    }
+
+    res.status(200).json(data);
+});
 
 app.get("/nfts/:walletAddress", async (req: Request, res: Response) => {
     const walletAddress = req.params.walletAddress;

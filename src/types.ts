@@ -29,3 +29,7 @@ export type Leaderboard = {
     top5: LeadboardRow;
     player: LeadboardRow;
 }
+
+export type PrizePool = {
+    total: string;
+}

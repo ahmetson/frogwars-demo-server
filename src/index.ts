@@ -8,6 +8,7 @@ import { WithId } from "mongodb";
 import { randomUUID } from "crypto";
 import { Deposited, LeadboardRow, Leaderboard, Start } from "./types";
 import {addToLeaderboard, topRanks} from "./leaderboard";
+import { startMoralis, nftsByAddress, Nft } from "./nft";
 import cors from "cors";
 
 dotenv.config();
@@ -257,8 +258,27 @@ app.get("/leaderboard/:walletAddress", async (req: Request, res: Response) => {
     res.status(200).json(leaderboard);
 })
 
+app.get("/nfts/:walletAddress", async (req: Request, res: Response) => {
+    const walletAddress = req.params.walletAddress;
+
+    let nfts: Nft[] = [];
+    try {
+        nfts = await nftsByAddress(walletAddress);
+    } catch (e) {
+        console.error(`Error: nftsByAddress('${walletAddress}')`)
+        console.error(e);
+        
+        res.status(500).json({message: 'internal error'})
+        return;
+    }
+
+    res.status(200).json({nfts: nfts});
+})
+
 connectToDatabase()
-    .then(() => {
+    .then(async () => {
+        await startMoralis();
+
         app.listen(port, () => {
             console.log(`[server]: Server is running at http://localhost:${port}`);
         });

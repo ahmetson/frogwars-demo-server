@@ -358,7 +358,7 @@ const txToDeposited = async(tx: string): Promise<Deposited | string> => {
     }
 
     const deposited: Deposited = {
-        walletAddress: parsedLog.args[0], 
+        walletAddress: parsedLog.args[1], 
         win: 0, 
         depositTime: block.timestamp,
         tx: txReceipt.hash,

@@ -8,7 +8,7 @@ import { WithId } from "mongodb";
 import { randomUUID } from "crypto";
 import { Deposited, LeadboardRow, Leaderboard, PrizePool, Start } from "./types";
 import {addToLeaderboard, topRanks, prizePool} from "./leaderboard";
-import { startMoralis, nftsByAddress, Nft } from "./nft";
+import { startMoralis, nftsByAddress, Nft, nftById } from "./nft";
 import cors from "cors";
 
 dotenv.config();
@@ -290,6 +290,22 @@ app.get("/nfts/:walletAddress", async (req: Request, res: Response) => {
     }
 
     res.status(200).json({nfts: nfts});
+})
+
+app.get("/nft/:Id", async (req: Request, res: Response) => {
+    const nftId = req.params.id;
+
+    let nft: Nft | undefined = undefined;
+    try {
+        nft = await nftById(nftId);
+    } catch (e) {
+        console.error(e);
+        
+        res.status(500).json({message: 'internal error'})
+        return;
+    }
+
+    res.status(200).json({nfts: [nft]});
 })
 
 connectToDatabase()

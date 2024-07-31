@@ -32,6 +32,27 @@ export const startMoralis = async () => {
     })
 }
 
+export const nftById = async (nftId: string): Promise<undefined|Nft> => {
+    const metadataAdapter  = await Moralis.EvmApi.nft.getNFTMetadata({
+        address: nftAddr,
+        chain: chain,
+        tokenId: nftId,
+    })
+
+    if (!metadataAdapter) {
+        return undefined;
+    }
+
+    const metadata = JSON.parse(JSON.stringify(metadataAdapter!.result.metadata)) as Metadata;
+
+    return {
+            id: nftId,
+            name: metadata.name,
+            image: ipfsToHttps(metadata.image),
+    } as Nft;
+}
+
+
 export const nftsByAddress = async (owner: string) => {
     const nftsBalances  = await Moralis.EvmApi.nft.getWalletNFTs({
         address: owner,

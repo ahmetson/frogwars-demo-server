@@ -292,7 +292,7 @@ app.get("/nfts/:walletAddress", async (req: Request, res: Response) => {
     res.status(200).json({nfts: nfts});
 })
 
-app.get("/nft/:Id", async (req: Request, res: Response) => {
+app.get("/nft/:id", async (req: Request, res: Response) => {
     const nftId = req.params.id;
 
     let nft: Nft | undefined = undefined;

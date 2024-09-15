@@ -129,3 +129,4 @@ out
 .pnp.*
 .vscode/settings.json
 .colyseus-cloud.json
+*.cs

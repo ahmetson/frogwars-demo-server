@@ -8,7 +8,8 @@
     "dev": "npx ts-node src/index.ts",
     "leaderboard": "npx ts-node src/mockup-leaderboard.ts",
     "build": "npx tsc",
-    "start": "node dist/src/index.js"
+    "start": "node dist/src/index.js",
+    "codegen": "schema-codegen src/state/GameState.ts --csharp --output ./"
   },
   "repository": {
     "type": "git",

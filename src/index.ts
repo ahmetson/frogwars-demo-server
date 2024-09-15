@@ -1,29 +1,41 @@
 import express, { Express, Request, Response } from "express";
 import dotenv from "dotenv";
-import { isAddress, Contract, JsonRpcProvider, TransactionReceipt, LogDescription, TransactionResponse, Block, getAddress } from "ethers";
-import LobbyAbi from "../abis/play_against_ai";
+import { isAddress, getAddress } from "ethers";
 import { collections, connectToDatabase  } from "./db";
 import { VersusDeposited } from "./models";
 import { WithId } from "mongodb";
-import { randomUUID } from "crypto";
 import { Deposited, LeadboardRow, Leaderboard, PrizePool, Start } from "./types";
 import {addToLeaderboard, topRanks, prizePool} from "./leaderboard";
 import { startMoralis, nftsByAddress, Nft, nftById } from "./nft";
+import { lobby, txToDeposited } from "./blockchain";
 import cors from "cors";
+import { createServer } from "http";
+import { Server } from "colyseus";
+import { FightingRoom } from "./game/fighting-room";
+import { ExampleRoom } from "./game/example-room";
+import { WebSocketTransport } from "@colyseus/ws-transport"
 
 dotenv.config();
 
 const app: Express = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 app.use(express.json());
 app.use(cors());
 
-const provider = new JsonRpcProvider(process.env.RPC_URL!);
-const lobby = new Contract(process.env.LOBBY_ADDRESS!, LobbyAbi, provider);
+const gameServer = new Server({
+    transport: new WebSocketTransport({
+        server: createServer(app),
+    }),
+    // driver: new RedisDriver(),
+    // presense: new RedisPresense(),
+})
 
-app.get("/", (req: Request, res: Response) => {
-    res.send("Express + TypeScript Server");
+gameServer.define("fighting", FightingRoom);
+gameServer.define("my_room", ExampleRoom);
+
+app.get("/", (_req: Request, res: Response) => {
+    res.json({status: "OK", "game": "https://game.frog-wars.com", "author": "https://dao.frogwifcat.com"});
 });
 
 app.get("/deposit/:tx", async (req:Request, res: Response) => {
@@ -312,9 +324,7 @@ connectToDatabase()
     .then(async () => {
         await startMoralis();
 
-        app.listen(port, () => {
-            console.log(`[server]: Server is running at http://localhost:${port}`);
-        });
+        gameServer.listen(port);
     })
     .catch((error: Error) => {
         console.error("Database connection failed", error);
@@ -330,55 +340,3 @@ const isSessionExpired = (depositTime: number): boolean => {
     return gameEnd < now;
 }
 
-const txToDeposited = async(tx: string): Promise<Deposited | string> => {
-    let txReceipt: null | TransactionReceipt;
-
-    try {
-        txReceipt = await provider.getTransactionReceipt(tx);
-    } catch (e) {
-        console.error(`failed to get tx: ` + e);
-        return "failed to get transaction";
-    }
-
-    if (txReceipt === null) {
-        return "invalid tx";
-    }
-    if (txReceipt.to?.toLowerCase() !== process.env.LOBBY_ADDRESS!.toLowerCase()) {
-        return "not a lobby transaction";
-    }
-
-    let parsedLog: LogDescription | null = null;
-
-    for (let log of txReceipt.logs) {
-        if (log.address.toLowerCase() !== process.env.LOBBY_ADDRESS!.toLowerCase()) {
-            continue;
-        }
-        parsedLog = lobby.interface.parseLog(log);
-        if (parsedLog === null) {
-            continue;
-        }
-        if (parsedLog.name !== "Deposit") {
-            parsedLog = null;
-            continue;
-        }
-    }
-
-    if (parsedLog === null) {
-        return "invalid event";
-    }
-
-    // now getting a time
-    let block: null | Block = await provider.getBlock(txReceipt.blockNumber);
-    if (block === null) {
-        return "Failed to get block time"
-    }
-
-    const deposited: Deposited = {
-        walletAddress: parsedLog.args[1], 
-        win: 0, 
-        depositTime: block.timestamp,
-        tx: txReceipt.hash,
-        session: randomUUID(),
-    };
-    return deposited;
-}

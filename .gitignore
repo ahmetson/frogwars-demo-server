@@ -130,3 +130,4 @@ out
 .vscode/settings.json
 .colyseus-cloud.json
 *.cs
+dist

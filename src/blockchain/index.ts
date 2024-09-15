@@ -1,11 +1,12 @@
-import { isAddress, Contract, JsonRpcProvider, TransactionReceipt, LogDescription, TransactionResponse, Block, getAddress } from "ethers";
-import { Deposited, LeadboardRow, Leaderboard, PrizePool, Start } from "../types";
+import { Contract, JsonRpcProvider, TransactionReceipt, LogDescription, TransactionResponse, Block, getAddress } from "ethers";
+import { Deposited } from "../types";
 import LobbyAbi from "../../abis/play_against_ai";
 import { randomUUID } from "crypto";
 
 const provider = new JsonRpcProvider(process.env.RPC_URL!);
 
 // Lobby Smartcontract
+console.log(`Blockchain is initialized. Lobby Addr ${process.env.LOBBY_ADDRESS}, provider: ${process.env.RPC_URL}`);
 export const lobby = new Contract(process.env.LOBBY_ADDRESS!, LobbyAbi, provider);
 
 export const txToDeposited = async(tx: string): Promise<Deposited | string> => {

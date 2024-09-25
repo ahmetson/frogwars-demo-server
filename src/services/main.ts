@@ -1,3 +1,5 @@
+// Main page and generic API handlers and types
+
 export type FrogWarsResponse = {
     code: number        // We use HTTP status codes
     message?: string    // only if code is not 200

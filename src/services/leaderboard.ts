@@ -1,12 +1,7 @@
-// Leaderboard
+// Leaderboard API endpoint handlers
 import { Request, Response } from "express"
-import { LeadboardRow, Leaderboard, PrizePool, Start } from "../types";
-import { collections  } from "../db";
-import { WithId } from "mongodb";
-import { VersusDeposited } from "../models";
+import { LeadboardRow, Leaderboard, PrizePool } from "../types";
 import { prizePool, topRanks } from "../leaderboard";
-import { getAddress } from "ethers";
-
 
 export const onLeaderboard = async (req: Request, res: Response) => {
     let noUser: LeadboardRow = {

@@ -1,4 +1,4 @@
-// Play against AI
+// Play against AI API Endpoint handlers
 import { Request, Response } from "express"
 import { FrogWarsResponse, clientError, serverError } from "./main";
 import { Deposited, Start } from "../types";

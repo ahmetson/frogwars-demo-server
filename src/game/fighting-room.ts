@@ -13,20 +13,9 @@ export class FightingRoom extends Room<GameState> {
         
     }*/
 
-    onCreate(options: any) {
+    onCreate(_options: any) {
         this.setState(new GameState());
         console.log(`[Game -> Fighting Room]: New room initialized`);
-
-        // Called every time this room receives a "move" message
-        this.onMessage("input", (client, data) => {
-            const player = this.state.players.get(client.sessionId);
-            if (player !== undefined) {
-                if (data.input !== 0) {
-                    player.input = data.input;
-                    console.log(`[Game -> Fighting Room]: client ${client.sessionId} has input: ${player.input}`);
-                }
-            }
-        })
 
         this.onMessage("ping", (client, _data) => {
             const serverTime = Date.now();
@@ -67,13 +56,8 @@ export class FightingRoom extends Room<GameState> {
     }
 
     resendToOthers(msgType: MsgType, sessionId: string, anyData: any) {
-        console.log(`[Game -> Fighting Room]: Resend from ${sessionId} the ${msgType} data ${JSON.stringify(anyData, null, 2)}`);
         this.clients.forEach(connectedClient => {
             if (connectedClient.sessionId !== sessionId) {
-                console.log(`[Game -> Fighting Room]: resend to other from ${sessionId} to ${connectedClient.sessionId}`);
-                // anyData["sessionId"] = sessionId
-                //console.log(`[Game -> Fighting Room]: data to resend (It must include the sessionId): `);
-                //console.log(anyData)
                 connectedClient.send(msgType, anyData);
             }
         })
@@ -83,7 +67,6 @@ export class FightingRoom extends Room<GameState> {
         console.log(`[Game -> Fighting Room]: Client ${client.sessionId} joined the room ${new Date().toUTCString()}`);
         let player = new GamePlayer();
         let joined = options["player"] as GamePlayer;
-        player.input = joined.input;
         player.demonName = joined.demonName;
         player.character = joined.character;
         player.assist = joined.assist;

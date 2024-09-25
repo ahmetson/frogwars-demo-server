@@ -1,7 +1,5 @@
 import * as mongoDB from "mongodb";
-import dotenv from "dotenv";
 import { VersusDeposited, VersusLeaderboard } from "./models";
-dotenv.config();
 
 export const collections: { 
     versus_deposits?: mongoDB.Collection<VersusDeposited>,
@@ -9,8 +7,6 @@ export const collections: {
 } = {}
 
 export async function connectToDatabase () {
-    dotenv.config();
- 
     const client: mongoDB.MongoClient = new mongoDB.MongoClient(process.env.DB_CONN_STRING!);
             
     await client.connect();

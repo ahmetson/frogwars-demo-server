@@ -1,8 +1,3 @@
-import dotenv from "dotenv";
-if (process.env.NODE_ENV && process.env.NODE_ENV!=='production') {
-    console.log(`Non production. load the local .env file at the root`);
-    dotenv.config();
-}
 import config from "@colyseus/tools";
 import { FightingRoom } from "./game/fighting-room";
 import { WebSocketTransport } from "@colyseus/ws-transport"

@@ -1,7 +1,6 @@
 // testing the leaderboard with the fake data
-import { connectToDatabase, collections } from "./db";
-import { randomUUID, randomInt } from "crypto";
-import { Deposited, LeadboardRow } from "./types";
+import { collections } from "./db";
+import { LeadboardRow } from "./types";
 
 export const addToLeaderboard = async (walletAddress: string) => {
     const agg = [
